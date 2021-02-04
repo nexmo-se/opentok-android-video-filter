@@ -84,8 +84,7 @@ class MainActivity : AppCompatActivity(), Session.SessionListener, PublisherKit.
         Log.d(TAG, "On Connected")
 
         mPublisher = Publisher.Builder(this)
-//            .capturer(FilterVideoCapturer(640, 480))
-            .capturer(MirrorVideoCapturer(this))
+            .capturer(FilterVideoCapturer(this))
             .build()
         mPublisher.setPublisherListener(this)
 
