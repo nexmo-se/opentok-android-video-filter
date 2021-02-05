@@ -181,6 +181,26 @@ class FilterVideoCapturer(context: Context) :
         return output
     }
 
+    private fun applyFilter(rgbBuffer: ByteArray): ByteArray {
+        // To Gray Scale
+        val greyBuffer = ByteArray(rgbBuffer.size)
+        for (i in 0 until rgbBuffer.size step 4) {
+            val r = rgbBuffer[i]
+            val g = rgbBuffer[i + 1]
+            val b = rgbBuffer[i + 2]
+            val a = rgbBuffer[i + 3]
+
+            val gray = g
+
+            greyBuffer[i] = gray
+            greyBuffer[i + 1] = gray
+            greyBuffer[i + 2] = gray
+            greyBuffer[i + 3] = a
+        }
+
+        return greyBuffer
+    }
+
     private val frameObserver =
         OnImageAvailableListener { reader ->
             val frame = reader.acquireNextImage()
@@ -214,42 +234,8 @@ class FilterVideoCapturer(context: Context) :
             allocationRgb.copyTo(rgbBuffer)
 
             if (CameraState.CAPTURE == cameraState) {
-                // Rotate
-//                val rotateBuffer = ByteArray(rgbBuffer.size)
-//                for (x in 0 until frame.width) {
-//                    for (y in 0 until frame.height) {
-//                        val pixel = y * frame.width + x
-//                        val index = pixel * 4
-//
-//                        val corX = y
-//                        val corY = frame.width - 1 - x
-//                        val corPixel = corY * frame.height + corX
-//                        val corIndex = corPixel * 4
-//                        rotateBuffer[corIndex] = rgbBuffer[index]
-//                        rotateBuffer[corIndex + 1] = rgbBuffer[index + 1]
-//                        rotateBuffer[corIndex + 2] = rgbBuffer[index + 2]
-//                        rotateBuffer[corIndex + 3] = rgbBuffer[index + 3]
-//                    }
-//                }
-
-                // To Gray Scale
-                val greyBuffer = ByteArray(rgbBuffer.size)
-                for (i in 0 until rgbBuffer.size step 4) {
-                    val r = rgbBuffer[i]
-                    val g = rgbBuffer[i + 1]
-                    val b = rgbBuffer[i + 2]
-                    val a = rgbBuffer[i + 3]
-
-                    val gray = g
-
-                    greyBuffer[i] = gray
-                    greyBuffer[i + 1] = gray
-                    greyBuffer[i + 2] = gray
-                    greyBuffer[i + 3] = a
-                }
-
-                provideByteArrayFrame(greyBuffer, ABGR, frame.width, frame.height, Surface.ROTATION_0, false)
-
+                val filteredBuffer = applyFilter(rgbBuffer)
+                provideByteArrayFrame(filteredBuffer, ABGR, frame.width, frame.height, Surface.ROTATION_0, false)
             }
 
             bitmap.recycle()
