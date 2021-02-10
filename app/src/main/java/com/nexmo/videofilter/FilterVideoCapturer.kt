@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.annotation.TargetApi
 import android.app.Activity
 import android.content.Context
-import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.ImageFormat
 import android.hardware.camera2.*
@@ -35,11 +34,13 @@ import kotlin.experimental.and
 
 @TargetApi(21)
 @RequiresApi(21)
-class FilterVideoCapturer(context: Context) :
+class FilterVideoCapturer(context1: Context) :
     BaseVideoCapturer(), CaptureSwitch {
     private enum class CameraState {
         CLOSED, CLOSING, SETUP, OPEN, CAPTURE, ERROR
     }
+
+    var context: Context = context1
 
     private val cameraManager: CameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     private var camera: CameraDevice? = null
@@ -104,23 +105,6 @@ class FilterVideoCapturer(context: Context) :
                 executeAfterClosed!!.run()
             }
         }
-    }
-
-    private fun toRgb(frame: Image) {
-        val yBuffer = frame.planes[0].buffer
-        val uBuffer = frame.planes[1].buffer
-        val vBuffer = frame.planes[2].buffer
-
-        val ySize = yBuffer.remaining()
-        val uSize = uBuffer.remaining()
-        val vSize = vBuffer.remaining()
-
-        val nv21 = ByteArray(ySize + uSize + vSize)
-
-        yBuffer.get(nv21, 0, ySize)
-        vBuffer.get(nv21, ySize, vSize)
-        uBuffer.get(nv21, ySize + vSize, uSize)
-
     }
 
     private fun imageToByteBuffer(image: Image): ByteBuffer {
@@ -227,6 +211,31 @@ class FilterVideoCapturer(context: Context) :
         return ByteBuffer.allocateDirect(rotatedBuffer.size).put(rotatedBuffer)
     }
 
+    private fun toRgb(yuvBytes: ByteBuffer, width: Int, height: Int): ByteArray {
+        // Convert using RenderScript
+        val rs = RenderScript.create(context)
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val allocationRgb = Allocation.createFromBitmap(rs, bitmap)
+        val allocationYuv = Allocation.createSized(rs, Element.U8(rs), yuvBytes.array().size)
+        allocationYuv.copyFrom(yuvBytes.array())
+        val scriptYuvToRgb = ScriptIntrinsicYuvToRGB.create(rs, Element.U8_4(rs))
+        scriptYuvToRgb.setInput(allocationYuv)
+        scriptYuvToRgb.forEach(allocationRgb)
+        allocationRgb.copyTo(bitmap)
+
+        // Get RGB Array
+        val rgbBuffer = ByteArray(allocationRgb.bytesSize)
+        allocationRgb.copyTo(rgbBuffer)
+
+        // Cleanup
+        bitmap.recycle()
+        allocationYuv.destroy()
+        allocationRgb.destroy()
+        rs.destroy()
+
+        return rgbBuffer
+    }
+
     private fun applyFilter(rgbBuffer: ByteArray): ByteArray {
         // To Gray Scale
         val greyBuffer = ByteArray(rgbBuffer.size)
@@ -264,7 +273,7 @@ class FilterVideoCapturer(context: Context) :
                 return@OnImageAvailableListener
             }
 
-            // Get Raw Image Byte Buffer
+            // Get Raw Image ByteBuffer
             val rawYuvBytes = imageToByteBuffer(frame)
 
             // Rotate
@@ -282,30 +291,19 @@ class FilterVideoCapturer(context: Context) :
             val newHeight = if (isLandscape) frame.height else frame.width
 
             // Convert to RGB
-            val rs = RenderScript.create(context)
-            val bitmap = Bitmap.createBitmap(newWidth, newHeight, Bitmap.Config.ARGB_8888)
-            val allocationRgb = Allocation.createFromBitmap(rs, bitmap)
-            val allocationYuv = Allocation.createSized(rs, Element.U8(rs), yuvBytes.array().size)
-            allocationYuv.copyFrom(yuvBytes.array())
-            val scriptYuvToRgb = ScriptIntrinsicYuvToRGB.create(rs, Element.U8_4(rs))
-            scriptYuvToRgb.setInput(allocationYuv)
-            scriptYuvToRgb.forEach(allocationRgb)
-            allocationRgb.copyTo(bitmap)
-            val rgbBuffer = ByteArray(allocationRgb.bytesSize)
-            allocationRgb.copyTo(rgbBuffer)
+            val rgbBuffer = toRgb(yuvBytes, newWidth, newHeight)
 
+            // Apply Filter
+            val filteredBuffer = applyFilter(rgbBuffer)
+
+            // Send to Opentok
             if (CameraState.CAPTURE == cameraState) {
-                val filteredBuffer = applyFilter(rgbBuffer)
                 provideByteArrayFrame(filteredBuffer, ABGR, newWidth, newHeight, Surface.ROTATION_0, false)
             }
 
-            bitmap.recycle()
-            allocationYuv.destroy()
-            allocationRgb.destroy()
-            rs.destroy()
-
             frame.close()
         }
+
     private val captureSessionObserver: CameraCaptureSession.StateCallback =
         object : CameraCaptureSession.StateCallback() {
             override fun onConfigured(session: CameraCaptureSession) {

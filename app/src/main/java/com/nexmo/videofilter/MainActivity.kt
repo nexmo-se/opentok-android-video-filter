@@ -20,10 +20,7 @@ class MainActivity : AppCompatActivity(), Session.SessionListener, PublisherKit.
         const val RC_VIDEO_APP_PERM = 124
     }
 
-    lateinit var mSession: Session
-    lateinit var mPublisher: Publisher
-
-    lateinit var mPublisherViewContainer: FrameLayout
+    private lateinit var mPublisherViewContainer: FrameLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,7 +30,9 @@ class MainActivity : AppCompatActivity(), Session.SessionListener, PublisherKit.
     }
 
     override fun onDestroy() {
-        mSession.unpublish(mPublisher)
+        with(application as FilterApplication) {
+            mPublisherViewContainer.removeView(mPublisher?.view)
+        }
         super.onDestroy()
     }
 
@@ -72,9 +71,25 @@ class MainActivity : AppCompatActivity(), Session.SessionListener, PublisherKit.
     private fun onPermissionReady() {
         mPublisherViewContainer = findViewById(R.id.publisher_container)
 
-        mSession = Session.Builder(this, API_KEY, SESSION_ID).build()
-        mSession.setSessionListener(this)
-        mSession.connect(TOKEN)
+        with(application as FilterApplication) {
+            if (mSession == null) {
+                // Start New Session
+                mSession = Session.Builder(this, API_KEY, SESSION_ID).build()
+                mSession?.setSessionListener(this@MainActivity)
+                mSession?.connect(TOKEN)
+            } else {
+                // Reuse Existing Session, update Activity Context
+                (mPublisher?.capturer as FilterVideoCapturer).context = this@MainActivity
+
+                // Set View
+                mPublisherViewContainer.addView(mPublisher?.view)
+                if (mPublisher?.view is GLSurfaceView) {
+                    (mPublisher?.view as GLSurfaceView).setZOrderOnTop(true)
+                } else {
+                    // nothing here, somehow needed for the if statement
+                }
+            }
+        }
     }
 
     override fun onStreamDropped(p0: Session?, p1: Stream?) {
@@ -88,18 +103,20 @@ class MainActivity : AppCompatActivity(), Session.SessionListener, PublisherKit.
     override fun onConnected(p0: Session?) {
         Log.d(TAG, "On Connected")
 
-        mPublisher = Publisher.Builder(this)
-            .capturer(FilterVideoCapturer(this))
-            .build()
-        mPublisher.setPublisherListener(this)
+        with(application as FilterApplication) {
+            mPublisher = Publisher.Builder(this)
+                .capturer(FilterVideoCapturer(this@MainActivity))
+                .build()
+            mPublisher?.setPublisherListener(this@MainActivity)
 
-        mPublisherViewContainer?.addView(mPublisher?.view)
+            // Set View
+            mPublisherViewContainer.addView(mPublisher?.view)
+            if (mPublisher?.view is GLSurfaceView) {
+                (mPublisher?.view as GLSurfaceView).setZOrderOnTop(true)
+            }
 
-        if (mPublisher?.view is GLSurfaceView) {
-            (mPublisher?.view as GLSurfaceView).setZOrderOnTop(true)
+            mSession?.publish(mPublisher)
         }
-
-        mSession.publish(mPublisher)
     }
 
     override fun onDisconnected(p0: Session?) {
