@@ -28,6 +28,7 @@ import java.nio.ByteBuffer
 import java.util.*
 import java.util.concurrent.locks.Condition
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.experimental.and
 
 
 @TargetApi(21)
@@ -181,6 +182,40 @@ class FilterVideoCapturer(context: Context) :
         return output
     }
 
+    private fun rotateYuv(yuvByteBuffer: ByteBuffer, width: Int, height: Int, rotation: Int): ByteBuffer {
+        val yuvBuffer = yuvByteBuffer.array()
+        val rotatedBuffer = ByteArray(yuvBuffer.size)
+        val frameSize = width * height
+        val swap = rotation % 180 != 0
+        val xflip = rotation % 270 != 0
+        val yflip = rotation >= 180
+
+        for (j in 0 until height) {
+            for (i in 0 until width) {
+                val yIn = j * width + i
+                val uIn = frameSize + (j shr 1) * width + (i and 1.inv())
+                val vIn = uIn + 1
+
+                val wOut = if (swap) height else width
+                val hOut = if (swap) width else height
+                val iSwapped = if (swap) j else i
+                val jSwapped = if (swap) i else j
+                val iOut = if (xflip) wOut - iSwapped - 1 else iSwapped
+                val jOut = if (yflip) hOut - jSwapped - 1 else jSwapped
+
+                val yOut = jOut * wOut + iOut
+                val uOut = frameSize + (jOut shr 1) * wOut + (iOut and 1.inv())
+                val vOut = uOut + 1
+
+                rotatedBuffer[yOut] = yuvBuffer[yIn].and(0xff.toByte())
+                rotatedBuffer[uOut] = yuvBuffer[uIn].and(0xff.toByte())
+                rotatedBuffer[vOut] = yuvBuffer[vIn].and(0xff.toByte())
+            }
+        }
+
+        return ByteBuffer.allocateDirect(rotatedBuffer.size).put(rotatedBuffer)
+    }
+
     private fun applyFilter(rgbBuffer: ByteArray): ByteArray {
         // To Gray Scale
         val greyBuffer = ByteArray(rgbBuffer.size)
@@ -218,11 +253,17 @@ class FilterVideoCapturer(context: Context) :
                 return@OnImageAvailableListener
             }
 
+            // Get Raw Image Byte Buffer
+            val rawYuvBytes = imageToByteBuffer(frame)
 
-            // To RGB
-            val yuvBytes = imageToByteBuffer(frame)
+            // Rotate 270 degrees (to make it protrait the right way)
+            val yuvBytes = rotateYuv(rawYuvBytes, frame.width, frame.height, 270)
+            val newWidth = frame.height
+            val newHeight = frame.width
+
+            // Convert to RGB
             val rs = RenderScript.create(context)
-            val bitmap = Bitmap.createBitmap(frame.width, frame.height, Bitmap.Config.ARGB_8888)
+            val bitmap = Bitmap.createBitmap(newWidth, newHeight, Bitmap.Config.ARGB_8888)
             val allocationRgb = Allocation.createFromBitmap(rs, bitmap)
             val allocationYuv = Allocation.createSized(rs, Element.U8(rs), yuvBytes.array().size)
             allocationYuv.copyFrom(yuvBytes.array())
@@ -235,7 +276,7 @@ class FilterVideoCapturer(context: Context) :
 
             if (CameraState.CAPTURE == cameraState) {
                 val filteredBuffer = applyFilter(rgbBuffer)
-                provideByteArrayFrame(filteredBuffer, ABGR, frame.width, frame.height, Surface.ROTATION_0, false)
+                provideByteArrayFrame(filteredBuffer, ABGR, newWidth, newHeight, Surface.ROTATION_0, false)
             }
 
             bitmap.recycle()

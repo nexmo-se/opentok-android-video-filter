@@ -14,8 +14,8 @@ class MainActivity : AppCompatActivity(), Session.SessionListener, PublisherKit.
     companion object {
         const val TAG = "MainActivity"
         const val API_KEY = "46789364"
-        const val SESSION_ID = "1_MX40Njc4OTM2NH5-MTYxMjQxOTk4NjA3Mn56eU9ENFZiQzJFOWlHNjZpYi9MbUpvQ1l-fg"
-        const val TOKEN = "T1==cGFydG5lcl9pZD00Njc4OTM2NCZzaWc9NjBiMjE3ZDFlZTgxYTZlODIzZTNmZmZkMmIzY2RhYTU3OGU1NzQ2YTpzZXNzaW9uX2lkPTFfTVg0ME5qYzRPVE0yTkg1LU1UWXhNalF4T1RrNE5qQTNNbjU2ZVU5RU5GWmlRekpGT1dsSE5qWnBZaTlNYlVwdlExbC1mZyZjcmVhdGVfdGltZT0xNjEyNDI4NDEyJm5vbmNlPTAuMTI3NzA3MTQxODc4MzY5MyZyb2xlPXB1Ymxpc2hlciZleHBpcmVfdGltZT0xNjEyNTE0ODEyJmluaXRpYWxfbGF5b3V0X2NsYXNzX2xpc3Q9"
+        const val SESSION_ID = "2_MX40Njc4OTM2NH5-MTYxMjkzNzczNzg5OX5oZkVQdXFpZkVEZ3FqWkh2SUp1M0JNL0N-fg"
+        const val TOKEN = "T1==cGFydG5lcl9pZD00Njc4OTM2NCZzaWc9N2IxMTY3Mzk0Y2M2ZDcxMjU0NzFjZDNkNWVjYTllYjk1NjgzZTY4MjpzZXNzaW9uX2lkPTJfTVg0ME5qYzRPVE0yTkg1LU1UWXhNamt6Tnpjek56ZzVPWDVvWmtWUWRYRnBaa1ZFWjNGcVdraDJTVXAxTTBKTkwwTi1mZyZjcmVhdGVfdGltZT0xNjEyOTM3NzM4Jm5vbmNlPTAuODE1MTE0MTU3MjY4NDA4OSZyb2xlPXB1Ymxpc2hlciZleHBpcmVfdGltZT0xNjEzMDI0MTM4JmluaXRpYWxfbGF5b3V0X2NsYXNzX2xpc3Q9"
 
         const val RC_VIDEO_APP_PERM = 124
     }
