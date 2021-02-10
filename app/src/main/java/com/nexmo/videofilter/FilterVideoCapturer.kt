@@ -500,6 +500,7 @@ class FilterVideoCapturer(context1: Context) :
             }
             captureSession!!.close()
             cameraFrame!!.close()
+            camera?.close()
             characteristics = null
         }
         Log.d(TAG, "stopCapture exit")

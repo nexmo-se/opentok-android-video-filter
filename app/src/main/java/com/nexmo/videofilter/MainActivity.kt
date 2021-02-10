@@ -15,7 +15,7 @@ class MainActivity : AppCompatActivity(), Session.SessionListener, PublisherKit.
         const val TAG = "MainActivity"
         const val API_KEY = "46789364"
         const val SESSION_ID = "2_MX40Njc4OTM2NH5-MTYxMjkzNzczNzg5OX5oZkVQdXFpZkVEZ3FqWkh2SUp1M0JNL0N-fg"
-        const val TOKEN = "T1==cGFydG5lcl9pZD00Njc4OTM2NCZzaWc9N2IxMTY3Mzk0Y2M2ZDcxMjU0NzFjZDNkNWVjYTllYjk1NjgzZTY4MjpzZXNzaW9uX2lkPTJfTVg0ME5qYzRPVE0yTkg1LU1UWXhNamt6Tnpjek56ZzVPWDVvWmtWUWRYRnBaa1ZFWjNGcVdraDJTVXAxTTBKTkwwTi1mZyZjcmVhdGVfdGltZT0xNjEyOTM3NzM4Jm5vbmNlPTAuODE1MTE0MTU3MjY4NDA4OSZyb2xlPXB1Ymxpc2hlciZleHBpcmVfdGltZT0xNjEzMDI0MTM4JmluaXRpYWxfbGF5b3V0X2NsYXNzX2xpc3Q9"
+        const val TOKEN = "T1==cGFydG5lcl9pZD00Njc4OTM2NCZzaWc9MjZlN2ZiMWYyNTE2YjhkNmVjYjk4ZDBkMTViNjA3OWUzN2U4NzcyNDpzZXNzaW9uX2lkPTJfTVg0ME5qYzRPVE0yTkg1LU1UWXhNamt6Tnpjek56ZzVPWDVvWmtWUWRYRnBaa1ZFWjNGcVdraDJTVXAxTTBKTkwwTi1mZyZjcmVhdGVfdGltZT0xNjEyOTQyNDkzJm5vbmNlPTAuMDkyMDg3NzczODE4MzQxMjEmcm9sZT1wdWJsaXNoZXImZXhwaXJlX3RpbWU9MTYxMzAyODg5MyZpbml0aWFsX2xheW91dF9jbGFzc19saXN0PQ=="
 
         const val RC_VIDEO_APP_PERM = 124
     }
@@ -25,15 +25,33 @@ class MainActivity : AppCompatActivity(), Session.SessionListener, PublisherKit.
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+    }
+
+    override fun onResume() {
+        super.onResume()
 
         requestPermissions()
     }
 
-    override fun onDestroy() {
-        with(application as FilterApplication) {
-            mPublisherViewContainer.removeView(mPublisher?.view)
+    override fun onPause() {
+        if (isChangingConfigurations) {
+            Log.d(TAG, "Changing Configuration")
+            with(application as FilterApplication) {
+                mPublisherViewContainer.removeView(mPublisher?.view)
+            }
+        } else {
+            Log.d(TAG, "Not Changing Configuration, disconnect opentok")
+            with(application as FilterApplication) {
+                mSession?.unpublish(mPublisher)
+                mSession?.disconnect()
+                mSession = null
+
+                mPublisher?.capturer?.stopCapture()
+                mPublisher?.capturer?.destroy()
+                mPublisher = null
+            }
         }
-        super.onDestroy()
+        super.onPause()
     }
 
     override fun onRequestPermissionsResult(
