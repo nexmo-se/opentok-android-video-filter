@@ -2,7 +2,9 @@ package com.nexmo.videofilter
 
 import android.annotation.SuppressLint
 import android.annotation.TargetApi
+import android.app.Activity
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.ImageFormat
 import android.hardware.camera2.*
@@ -183,6 +185,15 @@ class FilterVideoCapturer(context: Context) :
     }
 
     private fun rotateYuv(yuvByteBuffer: ByteBuffer, width: Int, height: Int, rotation: Int): ByteBuffer {
+        if (rotation == 0) {
+            return yuvByteBuffer
+        }
+
+        if (rotation % 90 != 0 || rotation < 0 || rotation > 270) {
+            Log.e(TAG, "Invalid rotation degree - $rotation")
+            return yuvByteBuffer
+        }
+
         val yuvBuffer = yuvByteBuffer.array()
         val rotatedBuffer = ByteArray(yuvBuffer.size)
         val frameSize = width * height
@@ -256,10 +267,19 @@ class FilterVideoCapturer(context: Context) :
             // Get Raw Image Byte Buffer
             val rawYuvBytes = imageToByteBuffer(frame)
 
-            // Rotate 270 degrees (to make it protrait the right way)
-            val yuvBytes = rotateYuv(rawYuvBytes, frame.width, frame.height, 270)
-            val newWidth = frame.height
-            val newHeight = frame.width
+            // Rotate
+            val surfaceRotation = (context as Activity).windowManager.defaultDisplay.rotation
+            val rotationDegree = when(surfaceRotation) {
+                Surface.ROTATION_0 -> 270
+                Surface.ROTATION_90 -> 0
+                Surface.ROTATION_180 -> 90
+                Surface.ROTATION_270 -> 180
+                else -> 0
+            }
+            val isLandscape = surfaceRotation == Surface.ROTATION_90 || surfaceRotation == Surface.ROTATION_270
+            val yuvBytes = rotateYuv(rawYuvBytes, frame.width, frame.height, rotationDegree)
+            val newWidth = if (isLandscape) frame.width else frame.height
+            val newHeight = if (isLandscape) frame.height else frame.width
 
             // Convert to RGB
             val rs = RenderScript.create(context)
