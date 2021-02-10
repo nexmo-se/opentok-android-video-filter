@@ -32,6 +32,11 @@ class MainActivity : AppCompatActivity(), Session.SessionListener, PublisherKit.
         requestPermissions()
     }
 
+    override fun onDestroy() {
+        mSession.unpublish(mPublisher)
+        super.onDestroy()
+    }
+
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
